@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "802015212959",
+    "project_id": "pokemon-20c7b",
+    "storage_bucket": "pokemon-20c7b.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:802015212959:android:5b5ac66df44c7ba7f7f9aa",
+        "android_client_info": {
+          "package_name": "com.example.pokemontask"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "802015212959-qbv8faskk2rp1c5a02f7fjjbg10e4tp5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpTdU5mtAOR_JoiwTBdb25oo1qOqbQdeI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "802015212959-qbv8faskk2rp1c5a02f7fjjbg10e4tp5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

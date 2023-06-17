@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">pokemonTask</string>
+    <string name="pokemonPhoto">pokemonPhoto</string>
+    <string name="pokemon_logo">pokemon logo</string>
+    <string name="loading_status">loading status</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="base_state">Base State</string>
 </resources>
