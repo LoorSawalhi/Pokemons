@@ -1,6 +1,7 @@
 package com.example.pokemontask.adapter
 
 import android.content.Context
+import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,7 +15,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.annotation.GlideModule
 import com.bumptech.glide.module.AppGlideModule
-import com.example.pokemontask.PokemonListFragmentDirections
 import com.example.pokemontask.R
 import com.example.pokemontask.network.PokemonApi
 import com.example.pokemontask.network.PokemonColor
@@ -24,12 +24,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.*
 
-@GlideModule
-class GlideApp : AppGlideModule()
-
 class PokemonListAdapter(
     private var pokemonList: List<Pokemons>?,
-    private var originalList: List<Pokemons>?
+    private var list: List<Pokemons>?
 ) : RecyclerView.Adapter<PokemonListAdapter.PokemonViewHolder>() {
 
     class PokemonViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -49,6 +46,7 @@ class PokemonListAdapter(
         val pokemonUrl = pokemon?.url
         var color: String = ""
 
+
         CoroutineScope(Dispatchers.Main).launch {
             val detailsList = pokemonUrl?.let { PokemonApi.retrofitService.getDetails(it) }
             val imageUrl = detailsList?.sprites?.front_default!!
@@ -61,7 +59,7 @@ class PokemonListAdapter(
             val colorCode =
                 foundColor?.hexCode ?: getRandomColorId(holder.itemView.context)
 
-            Glide.with(holder.imageView)
+            Glide.with(holder.itemView)
                 .load(imgUri)
                 .into(holder.imageView)
 
@@ -69,12 +67,11 @@ class PokemonListAdapter(
             holder.cardView.setCardBackgroundColor(colorCode)
 
             holder.cardView.setOnClickListener {
-                val action =
-                    PokemonListFragmentDirections.actionPokemonListFragment4ToDetailsFragment(
-                        pokemonName = pokemon.name,
-                        color = color
-                    )
-                holder.itemView.findNavController().navigate(action)
+                val bundle = Bundle().apply {
+                    putString("NAME", pokemon.name)
+                    putString("COLOR", color)
+                }
+                holder.itemView.findNavController().navigate(R.id.action_pokemonListFragment4_to_detailsFragment, bundle)
             }
         }
     }
@@ -94,10 +91,10 @@ class PokemonListAdapter(
 
     fun filterList(query: String?) {
         val filteredList = if (query.isNullOrBlank()) {
-            originalList
+            list
         } else {
             val lowercaseQuery = query.lowercase(Locale.ROOT)
-            originalList?.filter { pokemon ->
+            list?.filter { pokemon ->
                 pokemon.name.lowercase(Locale.ROOT).contains(lowercaseQuery)
             }
         }
@@ -111,13 +108,13 @@ class PokemonListAdapter(
 
     fun updateList(pokemonsList: List<Pokemons>) {
         if (pokemonsList.isNotEmpty()) {
-            if (originalList != null) {
-                if (!originalList!!.containsAll(pokemonsList)) {
-                    originalList = originalList!!.plus(pokemonsList)
+            if (list != null) {
+                if (!list!!.containsAll(pokemonsList)) {
+                    list = list!!.plus(pokemonsList)
                     notifyDataSetChanged()
                 }
             } else {
-                originalList = pokemonsList
+                list = pokemonsList
                 notifyDataSetChanged()
             }
         }
