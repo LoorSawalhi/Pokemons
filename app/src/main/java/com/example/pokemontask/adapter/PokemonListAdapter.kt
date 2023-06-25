@@ -2,6 +2,7 @@ package com.example.pokemontask.adapter
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,21 +14,20 @@ import androidx.core.net.toUri
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.bumptech.glide.annotation.GlideModule
-import com.bumptech.glide.module.AppGlideModule
 import com.example.pokemontask.R
-import com.example.pokemontask.network.PokemonApi
-import com.example.pokemontask.network.PokemonColor
-import com.example.pokemontask.network.Pokemons
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.example.pokemontask.network.*
+import com.example.pokemontask.repository.PokemonCallback
+import com.example.pokemontask.repository.PokemonRepositoryImpl
+import com.example.pokemontask.services.PokemonService
 import java.util.*
 
 class PokemonListAdapter(
     private var pokemonList: List<Pokemons>?,
     private var list: List<Pokemons>?
 ) : RecyclerView.Adapter<PokemonListAdapter.PokemonViewHolder>() {
+
+    private lateinit var pokemonService: PokemonService
+    private var detailsList: Details? = null
 
     class PokemonViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val imageView: ImageView = itemView.findViewById(R.id.imageView)
@@ -42,38 +42,69 @@ class PokemonListAdapter(
     }
 
     override fun onBindViewHolder(holder: PokemonViewHolder, position: Int) {
+        val context = holder.itemView.context
+        val pokemonRepository = PokemonRepositoryImpl(pokemonApi)
+        pokemonService = PokemonService(pokemonRepository)
+
         val pokemon = pokemonList?.get(position)
         val pokemonUrl = pokemon?.url
-        var color: String = ""
 
 
-        CoroutineScope(Dispatchers.Main).launch {
-            val detailsList = pokemonUrl?.let { PokemonApi.retrofitService.getDetails(it) }
-            val imageUrl = detailsList?.sprites?.front_default!!
-            val extraDetails = PokemonApi.retrofitService.getExtraDetails(detailsList.species.url)
-            val strings = extraDetails.toString().split(",")
-            val colorString = strings[2].split("=")
-            val imgUri = imageUrl.toUri().buildUpon().scheme("https").build()
-            val foundColor = searchColorByName(colorString[2])
-            color = colorString[2]
-            val colorCode =
-                foundColor?.hexCode ?: getRandomColorId(holder.itemView.context)
-
-            Glide.with(holder.itemView)
-                .load(imgUri)
-                .into(holder.imageView)
-
-            holder.nameTextView.text = pokemon.name
-            holder.cardView.setCardBackgroundColor(colorCode)
-
-            holder.cardView.setOnClickListener {
-                val bundle = Bundle().apply {
-                    putString("NAME", pokemon.name)
-                    putString("COLOR", color)
-                }
-                holder.itemView.findNavController().navigate(R.id.action_pokemonListFragment4_to_detailsFragment, bundle)
+        pokemonUrl?.let { pokemonService.getDetails(it, object :
+        PokemonCallback {
+            override fun onPokemonsLoaded(pokemonList: PokemonList) {
             }
-        }
+
+            override fun onDetailsLoaded(details: Details) {
+                detailsList = details
+                val imageUrl = detailsList?.sprites?.front_default!!
+                val imgUri = imageUrl.toUri().buildUpon().scheme("https").build()
+
+                holder.itemView.post {
+                    Glide.with(context)
+                        .load(imgUri)
+                        .into(holder.imageView)
+
+                    holder.nameTextView.text = pokemon.name
+                }
+
+                pokemonService.getExtraDetails(detailsList!!.species.url, object :
+                    PokemonCallback {
+                    override fun onPokemonsLoaded(pokemonList: PokemonList) {
+                    }
+
+                    override fun onDetailsLoaded(details: Details) {
+                    }
+
+                    override fun onError(errorMessage: String) {
+                        Log.e("Error loading", "")
+                    }
+
+                    override fun onExtraDetailsLoaded(extraDetails: Any) {
+                        val strings = extraDetails.toString().split(",")
+                        val colorString = strings[2].split("=")
+                        val foundColor = searchColorByName(colorString[1])
+                        val color = colorString[1]
+                        val colorCode = foundColor?.hexCode ?: getRandomColorId(context)
+                        holder.cardView.setCardBackgroundColor(colorCode)
+
+                        holder.cardView.setOnClickListener {
+                            val bundle = Bundle().apply {
+                                putString("NAME", pokemon.name)
+                                putString("COLOR", color)
+                            }
+                            holder.itemView.findNavController()
+                                .navigate(R.id.action_pokemonListFragment4_to_detailsFragment, bundle)
+                        }
+                    }
+                })
+            }
+            override fun onError(errorMessage: String) {
+                Log.e("Error loading", "") }
+
+            override fun onExtraDetailsLoaded(extraDetails: Any) {
+            }
+        })}
     }
 
     override fun getItemCount(): Int {

@@ -5,42 +5,60 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.widget.SearchView
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pokemontask.adapter.PokemonListAdapter
 import com.example.pokemontask.databinding.FragmentPokemonListBinding
-import com.example.pokemontask.network.PokemonApi
-import com.example.pokemontask.network.Pokemons
-import kotlinx.coroutines.launch
+import com.example.pokemontask.network.Details
+import com.example.pokemontask.network.PokemonList
+import com.example.pokemontask.network.pokemonApi
+import com.example.pokemontask.repository.PokemonCallback
+import com.example.pokemontask.repository.PokemonRepositoryImpl
+import com.example.pokemontask.services.PokemonService
 
 class PokemonListFragment : Fragment() {
 
+    private lateinit var pokemonService: PokemonService
     private lateinit var recyclerView: RecyclerView
     private lateinit var pokemonAdapter: PokemonListAdapter
     private lateinit var searchView: SearchView
     private var _binding: FragmentPokemonListBinding? = null
-    private val binding get() = _binding!!
-    private var nextUrl: String? = null
     private var isLoading = false
+    private var offset = 0
+    private val pageSize = 20
+    private val pokemonRepository = PokemonRepositoryImpl(pokemonApi)
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+        return inflater.inflate(R.layout.fragment_pokemon_list, container, false)
+    }
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        _binding = FragmentPokemonListBinding.inflate(inflater, container, false)
-        val view = binding.root
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
         recyclerView = view.findViewById(R.id.photos_grid)
         searchView = view.findViewById(R.id.searchView)
         recyclerView.layoutManager = GridLayoutManager(requireContext(), 2)
-        recyclerView.adapter = null // Set initial adapter as null
+        recyclerView.adapter = null
 
-        lifecycleScope.launch {
-            val pokemonList = getPokemonList()
-            pokemonAdapter = PokemonListAdapter(pokemonList, pokemonList)
-            recyclerView.adapter = pokemonAdapter // Set the adapter once the data is available
-        }
+        pokemonService = PokemonService(pokemonRepository)
+
+        pokemonService.getPokemons(offset, pageSize, object : PokemonCallback {
+            override fun onPokemonsLoaded(pokemonList: PokemonList) {
+                isLoading = false
+                pokemonAdapter = PokemonListAdapter(pokemonList.results, pokemonList.results)
+                recyclerView.adapter = pokemonAdapter
+                pokemonAdapter.updateList(pokemonList.results)
+            }
+
+            override fun onDetailsLoaded(details: Details) {
+            }
+
+            override fun onError(errorMessage: String) {
+                isLoading = false
+            }
+
+            override fun onExtraDetailsLoaded(extraDetails: Any) {
+            }
+        })
 
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
@@ -63,27 +81,35 @@ class PokemonListFragment : Fragment() {
                 val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
 
                 if (!isLoading && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount) {
-                    lifecycleScope.launch {
-                        loadData(nextUrl)
-                    }
+                    offset += pageSize
+                    loadPokemons()
                 }
             }
         })
-        return view
     }
 
-    private suspend fun loadData(nextUrl: String?) {
-        val pokemonsList = nextUrl?.let { PokemonApi.retrofitService.getMorePokemons(it) }
-        if (pokemonsList != null) {
-            this.nextUrl = pokemonsList.next
-            pokemonAdapter.updateList(pokemonsList.results)
-        }
-    }
+    private fun loadPokemons() {
+//        if (isLoading) return
 
-    private suspend fun getPokemonList(): List<Pokemons> {
-        val pokemonList = PokemonApi.retrofitService.getPokemon()
-        nextUrl = pokemonList.next
-        return pokemonList.results
+        isLoading = true
+
+        pokemonService.getPokemons(offset, pageSize, object : PokemonCallback {
+            override fun onPokemonsLoaded(pokemonList: PokemonList) {
+                isLoading = false
+                offset += pageSize
+                pokemonAdapter.updateList(pokemonList.results)
+            }
+
+            override fun onDetailsLoaded(details: Details) {
+            }
+
+            override fun onError(errorMessage: String) {
+                isLoading = false
+            }
+
+            override fun onExtraDetailsLoaded(extraDetails: Any) {
+            }
+        })
     }
 
     override fun onDestroyView() {

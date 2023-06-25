@@ -13,18 +13,18 @@ import android.widget.TextView
 import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.pokemontask.adapter.DetailsAdapter
+import com.example.pokemontask.adapter.PokemonListAdapter
 import com.example.pokemontask.adapter.pokemonColors
 import com.example.pokemontask.databinding.FragmentDetailsBinding
-import com.example.pokemontask.network.Details
-import com.example.pokemontask.network.PokemonApi
-import com.example.pokemontask.network.PokemonColor
-import kotlinx.coroutines.launch
+import com.example.pokemontask.network.*
+import com.example.pokemontask.repository.PokemonCallback
+import com.example.pokemontask.repository.PokemonRepositoryImpl
+import com.example.pokemontask.services.PokemonService
 
 class DetailsFragment : Fragment() {
     companion object {
@@ -34,6 +34,7 @@ class DetailsFragment : Fragment() {
 
     private lateinit var pokemonName: String
     private lateinit var recyclerView: RecyclerView
+    private lateinit var pokemonService: PokemonService
     private lateinit var detailsAdapter: DetailsAdapter
     private lateinit var color: String
     private var _binding: FragmentDetailsBinding? = null
@@ -55,36 +56,62 @@ class DetailsFragment : Fragment() {
         val length: TextView = view.findViewById(R.id.length)
         val backButton: ImageView = view.findViewById(R.id.back_button)
         val layout: LinearLayout = view.findViewById(R.id.pokemon_details)
+        val pokemonRepository = PokemonRepositoryImpl(pokemonApi)
 
+        pokemonService = PokemonService(pokemonRepository)
         recyclerView = view.findViewById(R.id.photos_grid)
-
         name.text = pokemonName
-        lifecycleScope.launch {
-            val details = getDetailsList()
-            println(details)
-            detailsAdapter = DetailsAdapter(details)
-            recyclerView.adapter = detailsAdapter
 
-            val extraDetails = PokemonApi.retrofitService.getExtraDetails(details.species.url)
-            val strings = extraDetails.toString().split(",")
-            val colorString = strings[2].split("=")
-            val foundColor = searchColorByName(colorString[2])
-            val imageUrl = details.sprites.front_default
-            val imgUri = imageUrl?.toUri()?.buildUpon()?.scheme("https")?.build()
-            color = colorString[2]
-            val colorCode =
-                foundColor?.hexCode ?: getRandomColorId(layout.context)
+        pokemonService.getDetails("https://pokeapi.co/api/v2/pokemon/"+pokemonName, object :
+            PokemonCallback {
+            override fun onPokemonsLoaded(pokemonList: PokemonList) {
+            }
 
-            Glide.with(view)
-                .load(imgUri)
-                .into(image)
+            override fun onDetailsLoaded(details: Details) {
+                detailsAdapter = DetailsAdapter(details)
+                recyclerView.adapter = detailsAdapter
 
-            layout.setBackgroundColor(colorCode)
-            toolBar.setBackgroundColor(colorCode)
-            weight.text = details.weight.toString()
-            length.text = details.height.toString()
+                val imageUrl = details.sprites.front_default
+                val imgUri = imageUrl?.toUri()?.buildUpon()?.scheme("https")?.build()
 
-        }
+                Glide.with(view.context)
+                    .load(imgUri)
+                    .into(image)
+
+                weight.text = details.weight.toString()
+                length.text = details.height.toString()
+
+                pokemonService.getExtraDetails(details.species.url,  object : PokemonCallback {
+                    override fun onPokemonsLoaded(pokemonList: PokemonList) {
+                    }
+
+                    override fun onDetailsLoaded(details: Details) {
+                    }
+
+                    override fun onError(errorMessage: String) {
+                    }
+
+                    override fun onExtraDetailsLoaded(extraDetails: Any) {
+                        val strings = extraDetails.toString().split(",")
+                        val colorString = strings[2].split("=")
+                        val foundColor = searchColorByName(colorString[2])
+
+                        color = colorString[2]
+                        val colorCode =
+                            foundColor?.hexCode ?: getRandomColorId(layout.context)
+
+                        layout.setBackgroundColor(colorCode)
+                        toolBar.setBackgroundColor(colorCode)
+                    }
+                })
+            }
+
+            override fun onError(errorMessage: String) {
+            }
+
+            override fun onExtraDetailsLoaded(extraDetails: Any) {
+            }
+        })
 
         val layoutManager = GridLayoutManager(requireContext(), 2)
         recyclerView.layoutManager = layoutManager
@@ -93,10 +120,6 @@ class DetailsFragment : Fragment() {
             backButton.findNavController().navigate(R.id.action_detailsFragment_to_pokemonListFragment4, null)
         }
         return view
-    }
-
-    private suspend fun getDetailsList(): Details {
-        return PokemonApi.retrofitService.getDetails("https://pokeapi.co/api/v2/pokemon/"+pokemonName)
     }
 
     private fun searchColorByName(colorName: String): PokemonColor? {
