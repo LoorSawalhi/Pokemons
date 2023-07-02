@@ -15,18 +15,21 @@ import androidx.navigation.findNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.pokemontask.R
-import com.example.pokemontask.network.*
+import com.example.pokemontask.network.Details
+import com.example.pokemontask.network.PokemonColor
+import com.example.pokemontask.network.Pokemons
+import com.example.pokemontask.network.pokemonApi
 import com.example.pokemontask.repository.PokemonCallback
 import com.example.pokemontask.repository.PokemonRepositoryImpl
-import com.example.pokemontask.services.PokemonService
 import java.util.*
+
+private const val ARG_NAME = "NAME"
 
 class PokemonListAdapter(
     private var pokemonList: List<Pokemons>?,
     private var list: List<Pokemons>?
 ) : RecyclerView.Adapter<PokemonListAdapter.PokemonViewHolder>() {
 
-    private lateinit var pokemonService: PokemonService
     private var detailsList: Details? = null
 
     class PokemonViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -44,19 +47,16 @@ class PokemonListAdapter(
     override fun onBindViewHolder(holder: PokemonViewHolder, position: Int) {
         val context = holder.itemView.context
         val pokemonRepository = PokemonRepositoryImpl(pokemonApi)
-        pokemonService = PokemonService(pokemonRepository)
 
         val pokemon = pokemonList?.get(position)
         val pokemonUrl = pokemon?.url
 
 
-        pokemonUrl?.let { pokemonService.getDetails(it, object :
-        PokemonCallback {
-            override fun onPokemonsLoaded(pokemonList: PokemonList) {
-            }
+        pokemonUrl?.let { pokemonRepository.getDetails(it, object :
+            PokemonCallback<Details, String> {
 
-            override fun onDetailsLoaded(details: Details) {
-                detailsList = details
+            override fun onSuccess(response:Details) {
+                detailsList = response
                 val imageUrl = detailsList?.sprites?.front_default!!
                 val imgUri = imageUrl.toUri().buildUpon().scheme("https").build()
 
@@ -68,42 +68,35 @@ class PokemonListAdapter(
                     holder.nameTextView.text = pokemon.name
                 }
 
-                pokemonService.getExtraDetails(detailsList!!.species.url, object :
-                    PokemonCallback {
-                    override fun onPokemonsLoaded(pokemonList: PokemonList) {
-                    }
+                pokemonRepository.getExtraDetails(detailsList!!.species.url, object :
+                    PokemonCallback<Any, String> {
 
-                    override fun onDetailsLoaded(details: Details) {
-                    }
+                    override fun onSuccess(response: Any) {
 
-                    override fun onError(errorMessage: String) {
-                        Log.e("Error loading", "")
-                    }
-
-                    override fun onExtraDetailsLoaded(extraDetails: Any) {
-                        val strings = extraDetails.toString().split(",")
+                        val strings = response.toString().split(",")
                         val colorString = strings[2].split("=")
                         val foundColor = searchColorByName(colorString[1])
-                        val color = colorString[1]
                         val colorCode = foundColor?.hexCode ?: getRandomColorId(context)
                         holder.cardView.setCardBackgroundColor(colorCode)
 
                         holder.cardView.setOnClickListener {
                             val bundle = Bundle().apply {
-                                putString("NAME", pokemon.name)
-                                putString("COLOR", color)
+                                putString(ARG_NAME, pokemon.name)
                             }
                             holder.itemView.findNavController()
                                 .navigate(R.id.action_pokemonListFragment4_to_detailsFragment, bundle)
                         }
                     }
+
+                    override fun onError(errorMessage: String) {
+                        Log.e("Error loading", "")
+                    }
                 })
             }
+
             override fun onError(errorMessage: String) {
                 Log.e("Error loading", "") }
 
-            override fun onExtraDetailsLoaded(extraDetails: Any) {
-            }
         })}
     }
 

@@ -3,6 +3,7 @@ package com.example.pokemontask
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -18,34 +19,29 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.pokemontask.adapter.DetailsAdapter
-import com.example.pokemontask.adapter.PokemonListAdapter
 import com.example.pokemontask.adapter.pokemonColors
 import com.example.pokemontask.databinding.FragmentDetailsBinding
 import com.example.pokemontask.network.*
 import com.example.pokemontask.repository.PokemonCallback
 import com.example.pokemontask.repository.PokemonRepositoryImpl
-import com.example.pokemontask.services.PokemonService
+import retrofit2.Response
+
+private const val ARG_NAME = "NAME"
 
 class DetailsFragment : Fragment() {
-    companion object {
-        var NAME = "letter"
-        var COLOR = "color"
-    }
 
-    private lateinit var pokemonName: String
     private lateinit var recyclerView: RecyclerView
-    private lateinit var pokemonService: PokemonService
     private lateinit var detailsAdapter: DetailsAdapter
     private lateinit var color: String
-    private var _binding: FragmentDetailsBinding? = null
-    private val binding get() = _binding!!
+    private lateinit var _binding: FragmentDetailsBinding
+    private val binding get() = _binding
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        pokemonName = arguments?.getString("NAME").toString()
+    ): View {
+        val pokemonName = arguments?.getString(ARG_NAME)
         _binding = FragmentDetailsBinding.inflate(inflater, container, false)
 
         val view = binding.root
@@ -58,40 +54,33 @@ class DetailsFragment : Fragment() {
         val layout: LinearLayout = view.findViewById(R.id.pokemon_details)
         val pokemonRepository = PokemonRepositoryImpl(pokemonApi)
 
-        pokemonService = PokemonService(pokemonRepository)
         recyclerView = view.findViewById(R.id.photos_grid)
         name.text = pokemonName
 
-        pokemonService.getDetails("https://pokeapi.co/api/v2/pokemon/"+pokemonName, object :
-            PokemonCallback {
-            override fun onPokemonsLoaded(pokemonList: PokemonList) {
-            }
+        pokemonRepository.getDetails("https://pokeapi.co/api/v2/pokemon/"+pokemonName, object :
+            PokemonCallback<Details, String> {
 
-            override fun onDetailsLoaded(details: Details) {
+
+            override fun onSuccess(response: Details) {
+
+                val details = response!!
                 detailsAdapter = DetailsAdapter(details)
                 recyclerView.adapter = detailsAdapter
 
                 val imageUrl = details.sprites.front_default
                 val imgUri = imageUrl?.toUri()?.buildUpon()?.scheme("https")?.build()
 
-                Glide.with(view.context)
+                Glide.with(requireContext())
                     .load(imgUri)
                     .into(image)
 
                 weight.text = details.weight.toString()
                 length.text = details.height.toString()
 
-                pokemonService.getExtraDetails(details.species.url,  object : PokemonCallback {
-                    override fun onPokemonsLoaded(pokemonList: PokemonList) {
-                    }
+                pokemonRepository.getExtraDetails(details.species.url,  object : PokemonCallback<Any, String> {
 
-                    override fun onDetailsLoaded(details: Details) {
-                    }
-
-                    override fun onError(errorMessage: String) {
-                    }
-
-                    override fun onExtraDetailsLoaded(extraDetails: Any) {
+                    override fun onSuccess(response: Any) {
+                        val extraDetails = response
                         val strings = extraDetails.toString().split(",")
                         val colorString = strings[2].split("=")
                         val foundColor = searchColorByName(colorString[2])
@@ -101,15 +90,15 @@ class DetailsFragment : Fragment() {
                             foundColor?.hexCode ?: getRandomColorId(layout.context)
 
                         layout.setBackgroundColor(colorCode)
-                        toolBar.setBackgroundColor(colorCode)
+                        toolBar.setBackgroundColor(colorCode)                    }
+
+                    override fun onError(errorMessage: String) {
+                        Log.e("ERROR", "Error: ${response}")
                     }
-                })
-            }
+            }) }
 
             override fun onError(errorMessage: String) {
-            }
-
-            override fun onExtraDetailsLoaded(extraDetails: Any) {
+                Log.e("ERROR", "Error: ${errorMessage}")
             }
         })
 

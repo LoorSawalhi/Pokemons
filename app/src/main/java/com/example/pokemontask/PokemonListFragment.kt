@@ -8,21 +8,16 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pokemontask.adapter.PokemonListAdapter
-import com.example.pokemontask.databinding.FragmentPokemonListBinding
-import com.example.pokemontask.network.Details
 import com.example.pokemontask.network.PokemonList
 import com.example.pokemontask.network.pokemonApi
 import com.example.pokemontask.repository.PokemonCallback
 import com.example.pokemontask.repository.PokemonRepositoryImpl
-import com.example.pokemontask.services.PokemonService
 
 class PokemonListFragment : Fragment() {
 
-    private lateinit var pokemonService: PokemonService
     private lateinit var recyclerView: RecyclerView
     private lateinit var pokemonAdapter: PokemonListAdapter
     private lateinit var searchView: SearchView
-    private var _binding: FragmentPokemonListBinding? = null
     private var isLoading = false
     private var offset = 0
     private val pageSize = 20
@@ -39,24 +34,17 @@ class PokemonListFragment : Fragment() {
         recyclerView.layoutManager = GridLayoutManager(requireContext(), 2)
         recyclerView.adapter = null
 
-        pokemonService = PokemonService(pokemonRepository)
+        pokemonRepository.getPokemons(offset, pageSize, object : PokemonCallback<PokemonList, String> {
 
-        pokemonService.getPokemons(offset, pageSize, object : PokemonCallback {
-            override fun onPokemonsLoaded(pokemonList: PokemonList) {
+            override fun onSuccess(response: PokemonList) {
                 isLoading = false
+                val pokemonList = response!!
                 pokemonAdapter = PokemonListAdapter(pokemonList.results, pokemonList.results)
                 recyclerView.adapter = pokemonAdapter
-                pokemonAdapter.updateList(pokemonList.results)
-            }
-
-            override fun onDetailsLoaded(details: Details) {
-            }
+                pokemonAdapter.updateList(pokemonList.results)            }
 
             override fun onError(errorMessage: String) {
                 isLoading = false
-            }
-
-            override fun onExtraDetailsLoaded(extraDetails: Any) {
             }
         })
 
@@ -92,28 +80,18 @@ class PokemonListFragment : Fragment() {
 //        if (isLoading) return
 
         isLoading = true
+        pokemonRepository.getPokemons(offset, pageSize, object :  PokemonCallback<PokemonList, String>{
 
-        pokemonService.getPokemons(offset, pageSize, object : PokemonCallback {
-            override fun onPokemonsLoaded(pokemonList: PokemonList) {
+            override fun onSuccess(response: PokemonList) {
+                val pokemonList = response!!
                 isLoading = false
                 offset += pageSize
                 pokemonAdapter.updateList(pokemonList.results)
             }
 
-            override fun onDetailsLoaded(details: Details) {
-            }
-
             override fun onError(errorMessage: String) {
                 isLoading = false
             }
-
-            override fun onExtraDetailsLoaded(extraDetails: Any) {
-            }
         })
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 }
