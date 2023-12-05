@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/pokemonListFragment4">
+    <fragment
+        android:id="@+id/pokemonListFragment4"
+        android:name="com.example.pokemontask.PokemonListFragment"
+        android:label="PokemonListFragment" >
+        <action
+            android:id="@+id/action_pokemonListFragment4_to_detailsFragment"
+            app:destination="@id/detailsFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/detailsFragment"
+        android:name="com.example.pokemontask.DetailsFragment"
+        android:label="DetailsFragment" >
+        <argument
+            android:name="ARG_NAME"
+            app:argType="string" />
+        <action
+            android:id="@+id/action_detailsFragment_to_pokemonListFragment4"
+            app:destination="@id/pokemonListFragment4" />
+    </fragment>
+</navigation>
